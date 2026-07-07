@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue'
 import { useLocalStorage } from '@vueuse/core'
-import { useI18n } from 'vue-i18n'
+import { useScopedI18n } from '@/i18n/app'
 import { useMessage } from 'naive-ui'
 import useClipboard from 'vue-clipboard3'
 import { Copy } from '@vicons/fa'
@@ -27,24 +27,7 @@ const {
     jwt, settings, userJwt, isTelegram, openSettings, telegramApp
 } = useGlobalState()
 
-const { t } = useI18n({
-    messages: {
-        en: {
-            userAddresses: 'User Addresses',
-            localAddresses: 'Local Addresses',
-            address: 'Address',
-            copy: 'Copy',
-            copied: 'Copied',
-        },
-        zh: {
-            userAddresses: '用户地址',
-            localAddresses: '本地地址',
-            address: '地址',
-            copy: '复制',
-            copied: '已复制',
-        }
-    }
-});
+const { t } = useScopedI18n('components.AddressSelect')
 
 const addressOptions = ref([])
 const addressValue = ref(null)
@@ -230,7 +213,7 @@ watch([userJwt, isTelegram, () => settings.value.address], async () => {
 </script>
 
 <template>
-    <n-flex class="address-row" align="center" justify="center" :wrap="false">
+    <n-flex class="address-row" align="center" justify="center" :wrap="true">
         <n-select v-model:value="addressValue" :options="addressOptions" :size="size" filterable
             :loading="addressLoading" :placeholder="t('address')" @update:value="onAddressChange"
             class="address-select" />
@@ -244,16 +227,17 @@ watch([userJwt, isTelegram, () => settings.value.address], async () => {
 <style scoped>
 .address-row {
     width: 100%;
+    gap: 10px;
 }
 
 .address-select {
     min-width: 220px;
     max-width: 420px;
-    flex: 0 1 420px;
+    flex: 1 1 220px;
 }
 
 .address-copy {
-    margin-left: 10px;
     flex: 0 0 auto;
+    white-space: nowrap;
 }
 </style>

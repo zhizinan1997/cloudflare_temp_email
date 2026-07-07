@@ -2,7 +2,7 @@ import { Context } from 'hono';
 import { Jwt } from 'hono/utils/jwt'
 
 import i18n from '../i18n';
-import { getJsonSetting, getStringValue, getUserRoles } from '../utils';
+import { getJsonSetting, getMailDomain, getStringValue, getUserRoles, includesDomain } from '../utils';
 import { UserOauth2Settings } from '../models';
 import { CONSTANTS } from '../constants';
 
@@ -68,7 +68,7 @@ export default {
         }
         const userInfo = await userRes.json<any>()
 
-        const email = await (async () => {
+        const rawEmail = await (async () => {
             if (setting.userEmailKey.startsWith("$")) {
                 const { JSONPath } = await import('jsonpath-plus');
                 const email = JSONPath({
@@ -83,12 +83,32 @@ export default {
             return email;
         })()
 
+        if (!rawEmail) {
+            return c.text(msgs.Oauth2FailedGetUserEmailMsg, 400);
+        }
+
+        // Apply email format transformation if enabled
+        const email = (() => {
+            const rawEmailStr = String(rawEmail).slice(0, 256).trim();  // 限制长度防止 ReDoS
+            if (!setting.enableEmailFormat || !setting.userEmailFormat) {
+                return rawEmailStr;
+            }
+            try {
+                const regex = new RegExp(setting.userEmailFormat);
+                const replacement = setting.userEmailReplace || '$1';
+                return rawEmailStr.replace(regex, replacement).trim();
+            } catch (e) {
+                console.error(`Invalid regex in userEmailFormat: ${setting.userEmailFormat}`, e);
+                return rawEmailStr;
+            }
+        })();
+
         if (!email) {
             return c.text(msgs.Oauth2FailedGetUserEmailMsg, 400);
         }
         // check email in mail allow list
-        const mailDomain = email.split("@")[1];
-        if (setting.enableMailAllowList && !setting.mailAllowList?.includes(mailDomain)) {
+        const mailDomain = getMailDomain(email);
+        if (setting.enableMailAllowList && !includesDomain(setting.mailAllowList, mailDomain)) {
             return c.text(`${msgs.UserMailDomainMustInMsg} ${JSON.stringify(setting.mailAllowList, null, 2)}`, 400)
         }
         // insert or update user
